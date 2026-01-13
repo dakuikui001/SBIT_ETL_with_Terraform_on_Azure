@@ -14,7 +14,6 @@ import gc
 PLATFORM = "DATABRICKS" 
 
 BASE_PATH = "/Volumes/sbit_dev_catalog/gx/gx_configs/expectations/"
-QUARANTINE_TABLE = "sbit_dev_catalog.gx.data_quality_quarantine"
 
 
 _SHARED_GX_CONTEXT = None
@@ -73,11 +72,13 @@ def validate_and_insert_process_batch(df, catalog, schema, batch_id, table_name)
     spark_internal = df.sparkSession
     if df.limit(1).count() == 0: return
 
+    QUARANTINE_TABLE = f"{catalog}.gx.data_quality_quarantine"
+
     full_target_table = f"{catalog}.{schema}.{table_name}" if PLATFORM == "DATABRICKS" else table_name
     temp_id_col = "_dq_batch_id"
     ds_name = f"ds_{table_name}_{batch_id}"
     val_def_name = f"val_{table_name}_{batch_id}"
-    
+
     # 持久化以确保 ID 稳定
     df_with_id = df.withColumn(temp_id_col, F.monotonically_increasing_id()).persist()
     result = None 
