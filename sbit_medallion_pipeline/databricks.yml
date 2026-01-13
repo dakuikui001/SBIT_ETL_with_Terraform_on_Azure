@@ -1,0 +1,41 @@
+# sbit_medallion_pipeline/databricks.yml
+bundle:
+  name: sbit_medallion_pipeline
+  uuid: e2aba75f-e3a8-45d9-b603-74d5382b6873
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: The catalog to use
+  schema:
+    description: The schema to use
+  env:
+    description: Execution environment (test or prod)
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-7405613233728637.17.azuredatabricks.net
+    variables:
+      catalog: sbit_test_catalog
+      schema: sbit_db_integration_test
+      env: test  # 用于 Notebook 里的销毁逻辑判断
+    presets:
+      artifacts_dynamic_version: true
+
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-7405613233728637.17.azuredatabricks.net
+      root_path: /Workspace/Users/huilu011_outlook.com#ext#@huilu011outlook.onmicrosoft.com/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: sbit_dev_catalog
+      schema: sbit_db
+      env: prod
+    permissions:
+      - user_name: huilu011_outlook.com#ext#@huilu011outlook.onmicrosoft.com
+        level: CAN_MANAGE

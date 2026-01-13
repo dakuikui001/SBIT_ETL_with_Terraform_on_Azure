@@ -1,0 +1,47 @@
+name: Databricks Bundle Deployment & Test
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'sbit_medallion_pipeline/src/**'
+      - 'sbit_medallion_pipeline/tests/**'
+      - 'sbit_medallion_pipeline/resources/**'
+      - 'sbit_medallion_pipeline/databricks.yml'
+
+jobs:
+  deploy_and_test:
+    runs-on: ubuntu-latest
+    
+    # 指定工作目录，这样下面的所有 steps 默认都在这个文件夹下执行
+    defaults:
+      run:
+        working-directory: ./sbit_medallion_pipeline
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Databricks SDK & CLI
+        run: |
+          pip install databricks-sdk  # 增加 SDK 确保 CLI 调用更稳定
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy Bundle to Dev
+        run: databricks bundle deploy -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+      - name: Run Integration Test
+        # 注意：这里 run 后面接的是你在 yml 里定义的 job 名称
+        run: databricks bundle run sbit_integration_test_job -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}

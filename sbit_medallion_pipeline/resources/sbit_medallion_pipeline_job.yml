@@ -1,0 +1,41 @@
+# 这里的定义将由 databricks.yml 中的 variables 驱动
+resources:
+  jobs:
+    sbit_integration_test_job:
+      name: "[${bundle.target}] SBIT_Medallion_Integration_Test"
+
+      # 这里的 parameters 会传递给 Notebook 的 Widgets
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${var.schema}
+
+      tasks:
+        - task_key: run_integration_test
+          job_cluster_key: job_cluster
+          notebook_task:
+            # 关键：根据你的截图，SBIT_integration_test.ipynb 在 tests 文件夹下
+            # 路径相对于 resources 文件夹：../ 退回根目录，再进 tests
+            notebook_path: ../tests/SBIT_integration_test.ipynb
+            
+            # 将 bundle 变量显式注入任务
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+      job_clusters:
+        - job_cluster_key: job_cluster
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            # 选择一个 4 核的机型（如 Standard_D4s_v3）
+            node_type_id: Standard_D4s_v3
+            
+            # --- 启用单节点模式的关键配置 ---
+            spark_conf:
+              spark.databricks.cluster.profile: singleNode
+              spark.master: local[*]
+            
+            custom_tags:
+              ResourceClass: SingleNode
+            data_security_mode: SINGLE_USER
