@@ -55,20 +55,15 @@ resource "azurerm_data_factory" "existing_adf" {
   resource_group_name = "data_engineering"
   location            = "southeastasia"
 
-  # 必须保留 Identity，否则 ADF 无法访问其他资源
   identity {
     type = "SystemAssigned"
   }
 
-  # 补全 Git (VSTS) 配置，防止 Git 关联断开
-  vsts_configuration {
-    account_name        = "huilu011"
-    branch_name         = "main"
-    project_name        = "databricks_SBIT"
-    repository_name     = "data_factory_SBIT"
-    root_folder         = "/"
-    tenant_id           = "7272853f-c9c2-4df7-aeb6-4147476aa3a4"
-    publishing_enabled  = true
+  github_configuration {
+    account_name    = "dakuikui001" 
+    repository_name = "SBIT_ETL_with_Terraform_on_Azure"
+    branch_name     = "main"
+    root_folder     = "/SBIT_ADF_Code" 
   }
 }
 
