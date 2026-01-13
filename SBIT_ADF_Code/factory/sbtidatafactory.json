@@ -1,0 +1,9 @@
+{
+	"name": "sbtidatafactory",
+	"location": "southeastasia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "c7320bda-e852-4c1b-b2f0-142ac817ab85",
+		"tenantId": "7272853f-c9c2-4df7-aeb6-4147476aa3a4"
+	}
+}
