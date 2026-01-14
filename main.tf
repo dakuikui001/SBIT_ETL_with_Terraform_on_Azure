@@ -18,8 +18,8 @@ provider "azurerm" {
   features {} 
 }
 
+# --- 基础资源 ---
 resource "azurerm_resource_group" "existing_dev" {
-
   name     = "data_engineering"
   location = "southeastasia"
 }
@@ -30,12 +30,8 @@ resource "azurerm_storage_account" "existing_storage" {
   location                 = "southeastasia"
   account_tier             = "Standard"
   account_replication_type = "LRS"
-
-  # 必须添加下面这两行来匹配云端现状
   is_hns_enabled           = true 
-  nfsv3_enabled            = false # 默认通常为 false，但写上更稳
-  
-  # 还有 plan 中提到的其他差异也可以补上
+  nfsv3_enabled            = false
   public_network_access_enabled = true
 }
 
@@ -44,11 +40,8 @@ resource "azurerm_databricks_workspace" "existing_dbx" {
   resource_group_name = "data_engineering"
   location            = "southeastasia"
   sku                 = "premium"
-  
-  # 加上这一行
   public_network_access_enabled = true
 }
-
 
 resource "azurerm_data_factory" "existing_adf" {
   name                = "sbtidatafactory"
@@ -67,6 +60,30 @@ resource "azurerm_data_factory" "existing_adf" {
   }
 }
 
+# --- 局部变量：减少重复代码 ---
+locals {
+  common_app_settings = {
+    # 🌟 关键：启用 Python V2 模型的触发器索引
+    "AzureWebJobsFeatureFlags"      = "EnableWorkerIndexing"
+    # 🌟 关键：核心系统运行环境
+    "FUNCTIONS_WORKER_RUNTIME"       = "python"
+    "FUNCTIONS_EXTENSION_VERSION"    = "~4"
+    "WEBSITE_RUN_FROM_PACKAGE"       = "1"
+    "AzureWebJobsSecretStorageType"  = "files"
+    "AzureWebJobsStorage"            = "DefaultEndpointsProtocol=https;AccountName=dataprojectsforhuilu;AccountKey=${azurerm_storage_account.existing_storage.primary_access_key};EndpointSuffix=core.windows.net"
+    
+    # 🌟 关键：Linux Consumption Plan 必须的文件共享配置
+    "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = "DefaultEndpointsProtocol=https;AccountName=dataprojectsforhuilu;AccountKey=${azurerm_storage_account.existing_storage.primary_access_key};EndpointSuffix=core.windows.net"
+    
+    # Kafka 与 Storage 业务变量
+    "KafkaConnString"            = "pkc-921jm.us-east-2.aws.confluent.cloud:9092"
+    "KafkaPassword"              = "cflttFmb380V3TiQCvtXPmKEWoLkUDBoZn2ZUsdrpoAWV9ynKNUvtD+iExYLFHMQ"
+    "KafkaUsername"              = "GGJPHA2CIM2YFWVA"
+    "STORAGE_ACCOUNT_CONNECTION" = "DefaultEndpointsProtocol=https;AccountName=dataprojectsforhuilu;AccountKey=${azurerm_storage_account.existing_storage.primary_access_key};EndpointSuffix=core.windows.net"
+    "STORAGE_ACCOUNT_KEY"        = azurerm_storage_account.existing_storage.primary_access_key
+    "STORAGE_ACCOUNT_NAME"       = "dataprojectsforhuilu"
+  }
+}
 
 # --- Function 1: BMP ---
 resource "azurerm_service_plan" "plan_bmp" {
@@ -85,22 +102,13 @@ resource "azurerm_linux_function_app" "func_bmp" {
   storage_account_name       = azurerm_storage_account.existing_storage.name
   storage_account_access_key = azurerm_storage_account.existing_storage.primary_access_key
 
-  # 补全环境变量，防止 Kafka 链接和密钥被删
-  app_settings = {
-    "AzureWebJobsSecretStorageType" = "files"
-    "KafkaConnString"               = "pkc-921jm.us-east-2.aws.confluent.cloud:9092"
-    "KafkaPassword"                 = "cflttFmb380V3TiQCvtXPmKEWoLkUDBoZn2ZUsdrpoAWV9ynKNUvtD+iExYLFHMQ"
-    "KafkaUsername"                 = "GGJPHA2CIM2YFWVA"
-    "STORAGE_ACCOUNT_CONNECTION"    = "DefaultEndpointsProtocol=https;AccountName=dataprojectsforhuilu;AccountKey=${azurerm_storage_account.existing_storage.primary_access_key};EndpointSuffix=core.windows.net"
-    "STORAGE_ACCOUNT_KEY"           = azurerm_storage_account.existing_storage.primary_access_key
-    "STORAGE_ACCOUNT_NAME"          = "dataprojectsforhuilu"
-  }
+  app_settings = merge(local.common_app_settings, {
+    "WEBSITE_CONTENTSHARE" = "sbit-bmp-share"
+  })
 
   site_config {
-    application_stack {
-      python_version = "3.11"
-    }
-    ftps_state = "FtpsOnly" # 保持云端默认的安全设置
+    application_stack { python_version = "3.11" }
+    ftps_state = "FtpsOnly"
   }
 }
 
@@ -121,20 +129,12 @@ resource "azurerm_linux_function_app" "func_user_info" {
   storage_account_name       = azurerm_storage_account.existing_storage.name
   storage_account_access_key = azurerm_storage_account.existing_storage.primary_access_key
 
-  app_settings = {
-    "AzureWebJobsSecretStorageType" = "files"
-    "KafkaConnString"               = "pkc-921jm.us-east-2.aws.confluent.cloud:9092"
-    "KafkaPassword"                 = "cflttFmb380V3TiQCvtXPmKEWoLkUDBoZn2ZUsdrpoAWV9ynKNUvtD+iExYLFHMQ"
-    "KafkaUsername"                 = "GGJPHA2CIM2YFWVA"
-    "STORAGE_ACCOUNT_CONNECTION"    = "DefaultEndpointsProtocol=https;AccountName=dataprojectsforhuilu;AccountKey=${azurerm_storage_account.existing_storage.primary_access_key};EndpointSuffix=core.windows.net"
-    "STORAGE_ACCOUNT_KEY"           = azurerm_storage_account.existing_storage.primary_access_key
-    "STORAGE_ACCOUNT_NAME"          = "dataprojectsforhuilu"
-  }
+  app_settings = merge(local.common_app_settings, {
+    "WEBSITE_CONTENTSHARE" = "sbit-user-info-share"
+  })
 
   site_config {
-    application_stack {
-      python_version = "3.11"
-    }
+    application_stack { python_version = "3.11" }
     ftps_state = "FtpsOnly"
   }
 }
@@ -156,20 +156,12 @@ resource "azurerm_linux_function_app" "func_workout" {
   storage_account_name       = azurerm_storage_account.existing_storage.name
   storage_account_access_key = azurerm_storage_account.existing_storage.primary_access_key
 
-  app_settings = {
-    "AzureWebJobsSecretStorageType" = "files"
-    "KafkaConnString"               = "pkc-921jm.us-east-2.aws.confluent.cloud:9092"
-    "KafkaPassword"                 = "cflttFmb380V3TiQCvtXPmKEWoLkUDBoZn2ZUsdrpoAWV9ynKNUvtD+iExYLFHMQ"
-    "KafkaUsername"                 = "GGJPHA2CIM2YFWVA"
-    "STORAGE_ACCOUNT_CONNECTION"    = "DefaultEndpointsProtocol=https;AccountName=dataprojectsforhuilu;AccountKey=${azurerm_storage_account.existing_storage.primary_access_key};EndpointSuffix=core.windows.net"
-    "STORAGE_ACCOUNT_KEY"           = azurerm_storage_account.existing_storage.primary_access_key
-    "STORAGE_ACCOUNT_NAME"          = "dataprojectsforhuilu"
-  }
+  app_settings = merge(local.common_app_settings, {
+    "WEBSITE_CONTENTSHARE" = "sbit-workout-share"
+  })
 
   site_config {
-    application_stack {
-      python_version = "3.11"
-    }
+    application_stack { python_version = "3.11" }
     ftps_state = "FtpsOnly"
   }
 }
