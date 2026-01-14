@@ -19,19 +19,19 @@ jobs:
       ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
       ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
       ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+      # Databricks 认证变量
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      # --- 1. Terraform 基础架构管理 ---
+      # 现在只负责资源组、存储、ADF、Databricks 等，不碰 Function
       - name: Terraform Init
         run: terraform init -input=false
 
@@ -39,55 +39,18 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve -input=false
 
-      - name: 'Login via Azure CLI'
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      # --- 1. 部署 BMP Function ---
-      - name: 'Package BMP Function'
+      # --- 2. 完善 Databricks 设置 ---
+      # 虽然不部署 Function，但 Databricks 的代码同步我们保留并完善
+      - name: Install Databricks CLI
         run: |
-          cd ./functions/SBIT_bmp_azure_function
-          zip -r ../../bmp_deploy.zip .
-          cd ../..
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-databricks/main/install.sh | sh
 
-      - name: 'Deploy BMP Function'
-        uses: Azure/functions-action@v1
-        with:
-          app-name: 'SBIT-bmp-azure-function'
-          package: './bmp_deploy.zip'
-          scm-do-build-during-deployment: false 
-
-      # 已删除原本会导致报错的 Sync BMP Triggers 步骤
-
-      # --- 2. 部署 User Info Function ---
-      - name: 'Package User Info Function'
+      - name: Sync Notebooks to Databricks
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          cd ./functions/SBIT_user_info_azure_function
-          zip -r ../../user_info_deploy.zip .
-          cd ../..
+          # 自动将仓库里的 notebooks 文件夹同步到 Databricks
+          # 确保环境变量 DATABRICKS_HOST 和 DATABRICKS_TOKEN 已在 GitHub Secrets 配置
+          databricks workspace import_dir ./notebooks /Shared/SBIT_Data_Engineering --overwrite
 
-      - name: 'Deploy User Info Function'
-        uses: Azure/functions-action@v1
-        with:
-          app-name: 'SBIT-user-info-azure-function'
-          package: './user_info_deploy.zip'
-          scm-do-build-during-deployment: false
-
-      # 已删除原本会导致报错的 Sync User Info Triggers 步骤
-
-      # --- 3. 部署 Workout Function ---
-      - name: 'Package Workout Function'
-        run: |
-          cd ./functions/SBIT_workout_azure_function
-          zip -r ../../workout_deploy.zip .
-          cd ../..
-
-      - name: 'Deploy Workout Function'
-        uses: Azure/functions-action@v1
-        with:
-          app-name: 'SBIT-workout-azure-function'
-          package: './workout_deploy.zip'
-          scm-do-build-during-deployment: false
-
-      # 已删除原本会导致报错的 Sync Workout Triggers 步骤
+      # --- 部署结束 ---
+      # 已移除所有关于 SBIT-bmp, SBIT-user-info, SBIT-workout 的打包和部署步骤

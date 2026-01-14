@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-    # 🌟 建议：暂时把这里的 paths 注释掉，或者改一个不存在的分支，防止它在你重建环境时捣乱
+    # 🌟 恢复路径过滤：只有当相关代码变动时才触发 Bundle 部署
     paths:
       - 'sbit_medallion_pipeline/src/**'
       - 'sbit_medallion_pipeline/tests/**'
@@ -21,30 +21,43 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # 升级到 v4 以获得更好性能
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Databricks SDK & CLI
+      - name: Install Databricks CLI
         run: |
-          pip install databricks-sdk
           curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
 
-      # 🌟 以下步骤暂时注释掉，直到你更新了 GitHub Secrets 里的 HOST 和 TOKEN
-      # - name: Deploy Bundle to Dev
-      #   run: databricks bundle deploy -t dev
-      #   env:
-      #     DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-      #     DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      # --- 第一步：验证 Bundle 配置是否正确 ---
+      - name: Validate Bundle
+        run: databricks bundle validate -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
 
-      # - name: Run Integration Test
-      #   run: databricks bundle run sbit_integration_test_job -t dev
-      #   env:
-      #     DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-      #     DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      # --- 第二步：部署 Bundle 到 Dev 环境 ---
+      # 这会将你的 Notebooks, Jobs 和资源上传到 Databricks
+      - name: Deploy Bundle to Dev
+        run: databricks bundle deploy -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
 
-      - name: Notice
-        run: echo "Databricks steps are temporarily disabled during environment rebuild."
+      # --- 第三步：运行集成测试 (Integration Test) ---
+      # 部署成功后，立即触发你在 databricks.yml 中定义的测试 Job
+      - name: Run Integration Test
+        run: |
+          echo "开始执行集成测试..."
+          databricks bundle run sbit_integration_test_job -t dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+      # --- 第四步：清理或状态反馈 (可选) ---
+      - name: Success Notice
+        if: success()
+        run: echo "部署与集成测试圆满完成！"
