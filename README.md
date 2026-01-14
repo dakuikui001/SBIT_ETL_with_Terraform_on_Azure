@@ -42,7 +42,6 @@ This project builds a scalable pipeline for:
 
 1. **Ingest**
    - **CSV**: ADF copies CSV files from GitHub to ADLS Gen2 (`data_zone/input/`)
-   - **JSON**: ADF copies JSON files to ADLS Gen2 (`data_zone/input/`)
 2. **Stream through Kafka**
    - Azure Functions publish JSON events to Kafka topics (`user_info`, `bpm`, `workout`)
    - Azure Functions consume Kafka topics and write a multiplexed raw dataset to ADLS Gen2 (`data_zone/raw/`)
@@ -66,7 +65,7 @@ This project builds a scalable pipeline for:
 ### Azure Data Factory
 
 - **Location**: `SBIT_ADF_Code/`
-- **Purpose**: Copy CSV/JSON from GitHub to ADLS Gen2 input zone; orchestrate ingestion pipelines
+- **Purpose**: Copy CSV from GitHub to ADLS Gen2 input zone; orchestrate ingestion pipelines
 
 ### Azure Databricks
 
