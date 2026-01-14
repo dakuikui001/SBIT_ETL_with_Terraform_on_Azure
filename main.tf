@@ -18,13 +18,12 @@ provider "azurerm" {
   features {} 
 }
 
-# --- 1. 基础资源 ---
+# --- 1. 基础资源与监控 ---
 resource "azurerm_resource_group" "existing_dev" {
   name     = "data_engineering"
   location = "southeastasia"
 }
 
-# 🌟 必须改为 resource，确保删掉后能重建
 resource "azurerm_application_insights" "ai_bmp" {
   name                = "SBIT-bmp-azure-function"
   location            = "southeastasia"
@@ -57,18 +56,53 @@ resource "azurerm_storage_account" "existing_storage" {
   public_network_access_enabled = true
 }
 
-# --- 2. 局部变量 ---
+# --- 2. 核心大数据组件重建 (带保护锁) ---
+
+# Databricks 重建
+resource "azurerm_databricks_workspace" "existing_dbx" {
+  name                = "databricks_projects"
+  resource_group_name = "data_engineering"
+  location            = "southeastasia"
+  sku                 = "premium"
+
+  lifecycle {
+    prevent_destroy = true # 🌟 防止未来再次误删
+  }
+}
+
+# Data Factory 重建
+resource "azurerm_data_factory" "existing_adf" {
+  name                = "sbtidatafactory"
+  resource_group_name = "data_engineering"
+  location            = "southeastasia"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  github_configuration {
+    account_name    = "dakuikui001" 
+    repository_name = "SBIT_ETL_with_Terraform_on_Azure"
+    branch_name     = "main"
+    root_folder     = "/SBIT_ADF_Code" 
+  }
+
+  lifecycle {
+    prevent_destroy = true # 🌟 防止未来再次误删
+  }
+}
+
+# --- 3. 局部变量：Function App 配置 ---
 locals {
   common_app_settings = {
     "AzureWebJobsFeatureFlags"      = "EnableWorkerIndexing"
     "FUNCTIONS_WORKER_RUNTIME"       = "python"
     "FUNCTIONS_EXTENSION_VERSION"    = "~4"
     "WEBSITE_RUN_FROM_PACKAGE"       = "1"
-    # 移除 AzureWebJobsSecretStorageType = "files" 以避免挂载失败
     "AzureWebJobsStorage"            = azurerm_storage_account.existing_storage.primary_connection_string
     "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = azurerm_storage_account.existing_storage.primary_connection_string
     
-    # Kafka 与 Storage 业务变量
+    # 业务环境变量
     "KafkaConnString"            = "pkc-921jm.us-east-2.aws.confluent.cloud:9092"
     "KafkaPassword"              = "cflttFmb380V3TiQCvtXPmKEWoLkUDBoZn2ZUsdrpoAWV9ynKNUvtD+iExYLFHMQ"
     "KafkaUsername"              = "GGJPHA2CIM2YFWVA"
@@ -78,7 +112,7 @@ locals {
   }
 }
 
-# --- 3. Function Apps ---
+# --- 4. Function Apps ---
 
 # BMP Function
 resource "azurerm_service_plan" "plan_bmp" {

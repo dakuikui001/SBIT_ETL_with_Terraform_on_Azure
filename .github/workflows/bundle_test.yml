@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+    # 🌟 建议：暂时把这里的 paths 注释掉，或者改一个不存在的分支，防止它在你重建环境时捣乱
     paths:
       - 'sbit_medallion_pipeline/src/**'
       - 'sbit_medallion_pipeline/tests/**'
@@ -14,7 +15,6 @@ jobs:
   deploy_and_test:
     runs-on: ubuntu-latest
     
-    # 指定工作目录，这样下面的所有 steps 默认都在这个文件夹下执行
     defaults:
       run:
         working-directory: ./sbit_medallion_pipeline
@@ -30,18 +30,21 @@ jobs:
 
       - name: Install Databricks SDK & CLI
         run: |
-          pip install databricks-sdk  # 增加 SDK 确保 CLI 调用更稳定
+          pip install databricks-sdk
           curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
 
-      - name: Deploy Bundle to Dev
-        run: databricks bundle deploy -t dev
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      # 🌟 以下步骤暂时注释掉，直到你更新了 GitHub Secrets 里的 HOST 和 TOKEN
+      # - name: Deploy Bundle to Dev
+      #   run: databricks bundle deploy -t dev
+      #   env:
+      #     DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      #     DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
 
-      - name: Run Integration Test
-        # 注意：这里 run 后面接的是你在 yml 里定义的 job 名称
-        run: databricks bundle run sbit_integration_test_job -t dev
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      # - name: Run Integration Test
+      #   run: databricks bundle run sbit_integration_test_job -t dev
+      #   env:
+      #     DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      #     DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+      - name: Notice
+        run: echo "Databricks steps are temporarily disabled during environment rebuild."
