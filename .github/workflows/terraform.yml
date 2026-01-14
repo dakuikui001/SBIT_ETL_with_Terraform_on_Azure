@@ -58,8 +58,7 @@ jobs:
           package: './bmp_deploy.zip'
           scm-do-build-during-deployment: false 
 
-      - name: 'Sync BMP Triggers'
-        run: az functionapp deployment source sync -g data_engineering -n SBIT-bmp-azure-function
+      # 已删除原本会导致报错的 Sync BMP Triggers 步骤
 
       # --- 2. 部署 User Info Function ---
       - name: 'Package User Info Function'
@@ -75,8 +74,7 @@ jobs:
           package: './user_info_deploy.zip'
           scm-do-build-during-deployment: false
 
-      - name: 'Sync User Info Triggers'
-        run: az functionapp deployment source sync -g data_engineering -n SBIT-user-info-azure-function
+      # 已删除原本会导致报错的 Sync User Info Triggers 步骤
 
       # --- 3. 部署 Workout Function ---
       - name: 'Package Workout Function'
@@ -92,10 +90,4 @@ jobs:
           package: './workout_deploy.zip'
           scm-do-build-during-deployment: false
 
-      - name: 'Sync Workout Triggers'
-        run: az functionapp deployment source sync -g data_engineering -n SBIT-workout-azure-function
-
-      # 🌟 重要提醒：如果下面原本有运行测试的步骤（如 pytest 或 databricks cli），
-      # 务必确保它们已被删除或像下面这样用 # 注释掉。
-      # - name: 'Run Integration Tests'
-      #   run: python scripts/test_logic.py
+      # 已删除原本会导致报错的 Sync Workout Triggers 步骤
