@@ -15,13 +15,11 @@ jobs:
     name: "Terraform & Deploy"
     runs-on: ubuntu-latest
     env:
+      # Azure 认证信息（来自 GitHub Secrets）
       ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
       ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
       ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
       ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
-      # Databricks 认证变量
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
 
     steps:
       - name: Checkout
@@ -30,27 +28,15 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # --- 1. Terraform 基础架构管理 ---
-      # 现在只负责资源组、存储、ADF、Databricks 等，不碰 Function
+      # --- Terraform 基础架构管理 ---
+      # 职责：创建/更新 Resource Group, Storage Account, Data Factory, Databricks Workspace
       - name: Terraform Init
         run: terraform init -input=false
 
+      - name: Terraform Plan
+        run: terraform plan -input=false
+
       - name: Terraform Apply
+        # 仅在 main 分支 push 时执行真正的变更
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve -input=false
-
-      # --- 2. 完善 Databricks 设置 ---
-      # 虽然不部署 Function，但 Databricks 的代码同步我们保留并完善
-      - name: Install Databricks CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-databricks/main/install.sh | sh
-
-      - name: Sync Notebooks to Databricks
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          # 自动将仓库里的 notebooks 文件夹同步到 Databricks
-          # 确保环境变量 DATABRICKS_HOST 和 DATABRICKS_TOKEN 已在 GitHub Secrets 配置
-          databricks workspace import_dir ./notebooks /Shared/SBIT_Data_Engineering --overwrite
-
-      # --- 部署结束 ---
-      # 已移除所有关于 SBIT-bmp, SBIT-user-info, SBIT-workout 的打包和部署步骤
