@@ -19,7 +19,7 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://adb-7405613233728637.17.azuredatabricks.net
+      host: https://adb-7405616877221723.3.azuredatabricks.net
     variables:
       catalog: sbit_test_catalog
       schema: sbit_db_integration_test
@@ -30,7 +30,7 @@ targets:
   prod:
     mode: production
     workspace:
-      host: https://adb-7405613233728637.17.azuredatabricks.net
+      host: https://adb-7405616877221723.3.azuredatabricks.net
       root_path: /Workspace/Users/huilu011_outlook.com#ext#@huilu011outlook.onmicrosoft.com/.bundle/${bundle.name}/${bundle.target}
     variables:
       catalog: sbit_dev_catalog
