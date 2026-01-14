@@ -1,14 +1,18 @@
-name: Build and deploy Python project to Azure Function App - SBIT-workout-azure-function
+name: Build and deploy - SBIT-workout-azure-function
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'functions/SBIT_workout_azure_function/**' # 只有当这个函数文件夹变动时才触发
   workflow_dispatch:
 
 env:
   AZURE_FUNCTIONAPP_PACKAGE_PATH: './functions/SBIT_workout_azure_function' 
   PYTHON_VERSION: '3.11' 
+  APP_NAME: 'SBIT-workout-azure-function'
+  RG_NAME: 'data_engineering'
 
 jobs:
   build:
@@ -25,12 +29,14 @@ jobs:
       - name: Install dependencies
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          # 必须安装到 .python_packages 目录
           mkdir -p .python_packages
           pip install -r requirements.txt --target=".python_packages"
 
       - name: Zip artifact for deployment
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          # 确保 host.json 在 zip 的根目录
           zip -r ../../release.zip ./*
 
       - name: Upload artifact for deployment job
@@ -59,10 +65,14 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D10259F680EE401DBCFFEC52582E6D9E }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8D36FB3C3C734C85BD0DE25D41DAEB19 }}
 
-      # 🌟 关键修改：弃用插件，改用 Azure CLI 暴力部署
       - name: 'Deploy via Azure CLI'
         run: |
+          # 使用 config-zip 部署，并禁用远程构建
           az functionapp deployment source config-zip \
-            --resource-group data_engineering \
-            --name SBIT-workout-azure-function \
-            --src release.zip
+            --resource-group ${{ env.RG_NAME }} \
+            --name ${{ env.APP_NAME }} \
+            --src release.zip \
+            --build-remote false
+
+          # 强制同步触发器并重启，确保 Portal 能看到函数
+          az functionapp restart --name ${{ env.APP_NAME }} --resource-group ${{ env.RG_NAME }}

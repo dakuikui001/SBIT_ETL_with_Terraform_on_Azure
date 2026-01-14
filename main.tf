@@ -10,7 +10,7 @@ terraform {
     resource_group_name  = "data_engineering"
     storage_account_name = "dataprojectsforhuilu"
     container_name        = "tfstate"
-    key                  = "terraform.tfstate"
+    key                   = "terraform.tfstate"
   }
 }
 
@@ -24,7 +24,6 @@ resource "azurerm_resource_group" "existing_dev" {
   location = "southeastasia"
 }
 
-# 🌟 新增：Log Analytics Workspace (现代 App Insights 必须依赖它)
 resource "azurerm_log_analytics_workspace" "existing_law" {
   name                = "la-data-engineering"
   location            = "southeastasia"
@@ -33,7 +32,7 @@ resource "azurerm_log_analytics_workspace" "existing_law" {
   retention_in_days   = 30
 }
 
-# --- 2. 监控资源 (已绑定 Workspace ID) ---
+# --- 2. 监控资源 ---
 resource "azurerm_application_insights" "ai_bmp" {
   name                = "SBIT-bmp-azure-function"
   location            = "southeastasia"
@@ -69,8 +68,7 @@ resource "azurerm_storage_account" "existing_storage" {
   public_network_access_enabled = true
 }
 
-# --- 3. 核心大数据组件 (带保护锁) ---
-
+# --- 3. 核心大数据组件 ---
 resource "azurerm_databricks_workspace" "existing_dbx" {
   name                = "databricks_projects"
   resource_group_name = "data_engineering"
@@ -109,7 +107,7 @@ locals {
     "AzureWebJobsFeatureFlags"      = "EnableWorkerIndexing"
     "FUNCTIONS_WORKER_RUNTIME"       = "python"
     "FUNCTIONS_EXTENSION_VERSION"    = "~4"
-    "WEBSITE_RUN_FROM_PACKAGE"       = "1"
+    # 🌟 移除 WEBSITE_RUN_FROM_PACKAGE = "1"，由 GitHub Action 的 az CLI 动态管理
     "AzureWebJobsStorage"            = azurerm_storage_account.existing_storage.primary_connection_string
     "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = azurerm_storage_account.existing_storage.primary_connection_string
     "KafkaConnString"            = "pkc-921jm.us-east-2.aws.confluent.cloud:9092"
@@ -150,6 +148,14 @@ resource "azurerm_linux_function_app" "func_bmp" {
     application_stack { python_version = "3.11" }
     ftps_state = "FtpsOnly"
   }
+
+  # 🌟 关键：防止 Terraform 强制重置部署变量
+  lifecycle {
+    ignore_changes = [
+      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
+      app_settings["WEBSITE_ENABLE_SYNC_UPDATE_SITE"]
+    ]
+  }
 }
 
 # User Info Function
@@ -179,6 +185,13 @@ resource "azurerm_linux_function_app" "func_user_info" {
     application_stack { python_version = "3.11" }
     ftps_state = "FtpsOnly"
   }
+
+  lifecycle {
+    ignore_changes = [
+      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
+      app_settings["WEBSITE_ENABLE_SYNC_UPDATE_SITE"]
+    ]
+  }
 }
 
 # Workout Function
@@ -207,5 +220,12 @@ resource "azurerm_linux_function_app" "func_workout" {
   site_config {
     application_stack { python_version = "3.11" }
     ftps_state = "FtpsOnly"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
+      app_settings["WEBSITE_ENABLE_SYNC_UPDATE_SITE"]
+    ]
   }
 }
