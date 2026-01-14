@@ -86,3 +86,5 @@ jobs:
           slot-name: 'Production'
           # 这里使用当前解压后的根目录
           package: '.'
+          scm-do-build-during-deployment: true
+
