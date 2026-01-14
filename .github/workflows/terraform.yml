@@ -8,11 +8,11 @@ on:
 
 permissions:
   contents: read
-  id-token: write # 如果使用 OIDC 登录需要此权限
+  id-token: write
 
 jobs:
-  terraform:
-    name: "Terraform"
+  terraform_and_deploy:
+    name: "Terraform & Deploy"
     runs-on: ubuntu-latest
     env:
       ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
@@ -24,14 +24,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
         run: terraform init
-
-      - name: Terraform Plan
-        run: terraform plan -input=false
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -42,24 +44,53 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # --- 部署 BMP Function ---
+      # --- 1. 部署 BMP Function ---
+      - name: 'Package BMP Function'
+        run: |
+          cd ./functions/SBIT_bmp_azure_function
+          zip -r ../../bmp_deploy.zip .
+          cd ../..
+
       - name: 'Deploy BMP Function'
         uses: Azure/functions-action@v1
         with:
           app-name: 'SBIT-bmp-azure-function'
-          # 🌟 核心改进：显式指向包含 function_app.py 的文件夹内容
-          package: './functions/SBIT_bmp_azure_function'
+          package: './bmp_deploy.zip'
+          scm-do-build-during-deployment: false # 🌟 告诉云端我们已经打好包了，不要再 Oryx build
 
-      # --- 部署 User Info Function ---
+      - name: 'Sync BMP Triggers'
+        run: az functionapp deployment source sync -g data_engineering -n SBIT-bmp-azure-function
+
+      # --- 2. 部署 User Info Function ---
+      - name: 'Package User Info Function'
+        run: |
+          cd ./functions/SBIT_user_info_azure_function
+          zip -r ../../user_info_deploy.zip .
+          cd ../..
+
       - name: 'Deploy User Info Function'
         uses: Azure/functions-action@v1
         with:
           app-name: 'SBIT-user-info-azure-function'
-          package: './functions/SBIT_user_info_azure_function'
+          package: './user_info_deploy.zip'
+          scm-do-build-during-deployment: false
 
-      # --- 部署 Workout Function ---
+      - name: 'Sync User Info Triggers'
+        run: az functionapp deployment source sync -g data_engineering -n SBIT-user-info-azure-function
+
+      # --- 3. 部署 Workout Function ---
+      - name: 'Package Workout Function'
+        run: |
+          cd ./functions/SBIT_workout_azure_function
+          zip -r ../../workout_deploy.zip .
+          cd ../..
+
       - name: 'Deploy Workout Function'
         uses: Azure/functions-action@v1
         with:
           app-name: 'SBIT-workout-azure-function'
-          package: './functions/SBIT_workout_azure_function'
+          package: './workout_deploy.zip'
+          scm-do-build-during-deployment: false
+
+      - name: 'Sync Workout Triggers'
+        run: az functionapp deployment source sync -g data_engineering -n SBIT-workout-azure-function
