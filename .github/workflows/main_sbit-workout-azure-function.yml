@@ -13,9 +13,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,12 +23,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
+        # 🌟 关键：必须把库安装到 .python_packages，Azure 才能识别
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          mkdir -p .python_packages
           pip install -r requirements.txt --target=".python_packages"
 
       - name: Zip artifact for deployment
-        # 🌟 关键：在这里直接打好最终的压缩包
+        # 🌟 关键：从子目录内部打包，确保 host.json 在压缩包最顶层
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           zip -r ../../release.zip ./*
@@ -67,7 +66,6 @@ jobs:
         id: deploy-to-function
         with:
           app-name: 'SBIT-workout-azure-function'
-          # 🌟 核心修改：直接指定上传 release.zip，不传当前目录
           package: 'release.zip'
-          # 🌟 设为 false，因为 zip 里已经包含了所有依赖 (.python_packages)
+          # 🌟 因为我们已经在上面安装了 .python_packages，这里设为 false 避免冲突
           scm-do-build-during-deployment: false
