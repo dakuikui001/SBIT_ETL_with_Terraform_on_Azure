@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # 如果使用 OIDC 登录需要此权限
 
 jobs:
   terraform:
@@ -41,18 +42,22 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # --- 部署 BMP Function ---
       - name: 'Deploy BMP Function'
         uses: Azure/functions-action@v1
         with:
           app-name: 'SBIT-bmp-azure-function'
+          # 🌟 核心改进：显式指向包含 function_app.py 的文件夹内容
           package: './functions/SBIT_bmp_azure_function'
 
+      # --- 部署 User Info Function ---
       - name: 'Deploy User Info Function'
         uses: Azure/functions-action@v1
         with:
           app-name: 'SBIT-user-info-azure-function'
           package: './functions/SBIT_user_info_azure_function'
 
+      # --- 部署 Workout Function ---
       - name: 'Deploy Workout Function'
         uses: Azure/functions-action@v1
         with:
