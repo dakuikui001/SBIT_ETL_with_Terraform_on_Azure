@@ -18,17 +18,28 @@ provider "azurerm" {
   features {} 
 }
 
-# --- 1. 基础资源与监控 ---
+# --- 1. 基础资源 ---
 resource "azurerm_resource_group" "existing_dev" {
   name     = "data_engineering"
   location = "southeastasia"
 }
 
+# 🌟 新增：Log Analytics Workspace (现代 App Insights 必须依赖它)
+resource "azurerm_log_analytics_workspace" "existing_law" {
+  name                = "la-data-engineering"
+  location            = "southeastasia"
+  resource_group_name = "data_engineering"
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+}
+
+# --- 2. 监控资源 (已绑定 Workspace ID) ---
 resource "azurerm_application_insights" "ai_bmp" {
   name                = "SBIT-bmp-azure-function"
   location            = "southeastasia"
   resource_group_name = "data_engineering"
   application_type    = "web"
+  workspace_id        = azurerm_log_analytics_workspace.existing_law.id
 }
 
 resource "azurerm_application_insights" "ai_user" {
@@ -36,6 +47,7 @@ resource "azurerm_application_insights" "ai_user" {
   location            = "southeastasia"
   resource_group_name = "data_engineering"
   application_type    = "web"
+  workspace_id        = azurerm_log_analytics_workspace.existing_law.id
 }
 
 resource "azurerm_application_insights" "ai_workout" {
@@ -43,6 +55,7 @@ resource "azurerm_application_insights" "ai_workout" {
   location            = "southeastasia"
   resource_group_name = "data_engineering"
   application_type    = "web"
+  workspace_id        = azurerm_log_analytics_workspace.existing_law.id
 }
 
 resource "azurerm_storage_account" "existing_storage" {
@@ -56,9 +69,8 @@ resource "azurerm_storage_account" "existing_storage" {
   public_network_access_enabled = true
 }
 
-# --- 2. 核心大数据组件重建 (带保护锁) ---
+# --- 3. 核心大数据组件 (带保护锁) ---
 
-# Databricks 重建
 resource "azurerm_databricks_workspace" "existing_dbx" {
   name                = "databricks_projects"
   resource_group_name = "data_engineering"
@@ -66,11 +78,10 @@ resource "azurerm_databricks_workspace" "existing_dbx" {
   sku                 = "premium"
 
   lifecycle {
-    prevent_destroy = true # 🌟 防止未来再次误删
+    prevent_destroy = true 
   }
 }
 
-# Data Factory 重建
 resource "azurerm_data_factory" "existing_adf" {
   name                = "sbtidatafactory"
   resource_group_name = "data_engineering"
@@ -88,11 +99,11 @@ resource "azurerm_data_factory" "existing_adf" {
   }
 
   lifecycle {
-    prevent_destroy = true # 🌟 防止未来再次误删
+    prevent_destroy = true 
   }
 }
 
-# --- 3. 局部变量：Function App 配置 ---
+# --- 4. 局部变量 ---
 locals {
   common_app_settings = {
     "AzureWebJobsFeatureFlags"      = "EnableWorkerIndexing"
@@ -101,8 +112,6 @@ locals {
     "WEBSITE_RUN_FROM_PACKAGE"       = "1"
     "AzureWebJobsStorage"            = azurerm_storage_account.existing_storage.primary_connection_string
     "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = azurerm_storage_account.existing_storage.primary_connection_string
-    
-    # 业务环境变量
     "KafkaConnString"            = "pkc-921jm.us-east-2.aws.confluent.cloud:9092"
     "KafkaPassword"              = "cflttFmb380V3TiQCvtXPmKEWoLkUDBoZn2ZUsdrpoAWV9ynKNUvtD+iExYLFHMQ"
     "KafkaUsername"              = "GGJPHA2CIM2YFWVA"
@@ -112,7 +121,7 @@ locals {
   }
 }
 
-# --- 4. Function Apps ---
+# --- 5. Function Apps ---
 
 # BMP Function
 resource "azurerm_service_plan" "plan_bmp" {
