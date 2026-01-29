@@ -1,7 +1,6 @@
 # sbit_medallion_pipeline/databricks.yml
 bundle:
   name: sbit_medallion_pipeline
-  uuid: e2aba75f-e3a8-45d9-b603-74d5382b6873
 
 include:
   - resources/*.yml
@@ -19,7 +18,7 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://adb-7405616877221723.3.azuredatabricks.net
+      host: https://adb-7405617541715983.3.azuredatabricks.net
     variables:
       catalog: sbit_test_catalog
       schema: sbit_db_integration_test
@@ -30,12 +29,12 @@ targets:
   prod:
     mode: production
     workspace:
-      host: https://adb-7405616877221723.3.azuredatabricks.net
-      root_path: /Workspace/Users/huilu011_outlook.com#ext#@huilu011outlook.onmicrosoft.com/.bundle/${bundle.name}/${bundle.target}
+      host: https://adb-7405617541715983.3.azuredatabricks.net
+      root_path: /Workspace/Users/huilu001_outlook.com#ext#@huilu001outlook.onmicrosoft.com/.bundle/${bundle.name}/${bundle.target}
     variables:
       catalog: sbit_dev_catalog
       schema: sbit_db
       env: prod
     permissions:
-      - user_name: huilu011_outlook.com#ext#@huilu011outlook.onmicrosoft.com
+      - user_name: huilu001_outlook.com#ext#@huilu001outlook.onmicrosoft.com
         level: CAN_MANAGE
